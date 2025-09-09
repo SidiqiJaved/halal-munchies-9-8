@@ -10,6 +10,7 @@ import { TrainingSystem } from "./components/TrainingSystem";
 import { InventoryManagement } from "./components/InventoryManagement";
 import { InspectionManagement } from "./components/InspectionManagement";
 import { Footer } from "./components/Footer";
+import { MobileStickyCTA } from "./components/MobileStickyCTA";
 import { Button } from "./components/ui/button";
 import {
   Users,
@@ -70,6 +71,13 @@ export default function App() {
   const handleSectionChange = (section: string) => {
     updateAppState({ currentSection: section as Section });
   };
+
+  const handleOrderClick = () => {
+    handleSectionChange("ordering");
+  };
+
+  // Determine if mobile CTA should be visible (hide on ordering/checkout pages)
+  const shouldShowMobileCTA = appState.currentSection !== "ordering";
 
   const handleDemoToggle = () => {
     const newMode: DemoMode = appState.demoMode === "customer" ? "franchise" : "customer";
@@ -224,7 +232,7 @@ export default function App() {
       {/* Main Content */}
       <main 
         id="main-content" 
-        className="flex-1"
+        className={`flex-1 ${shouldShowMobileCTA ? 'pb-20 md:pb-0' : ''}`}
         role="main"
         tabIndex={-1}
       >
@@ -233,6 +241,12 @@ export default function App() {
 
       {/* Footer */}
       <Footer />
+
+      {/* Mobile Sticky CTA */}
+      <MobileStickyCTA 
+        onOrderClick={handleOrderClick}
+        isVisible={shouldShowMobileCTA}
+      />
     </div>
   );
 }
