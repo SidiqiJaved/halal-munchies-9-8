@@ -1,0 +1,23 @@
+# Image Placeholders
+
+This directory should contain the following images for the application:
+
+## Required Images:
+- hero-food.jpg - Main hero section food image
+- restaurant-interior.jpg - Restaurant interior for Our Story section
+- restaurant-kitchen.jpg - Kitchen/chef image for Our Story page
+- business-dashboard.jpg - Dashboard analytics image for franchise portal
+
+## Image Guidelines:
+- Use high-quality images (min 1200px width)
+- Optimize for web (JPG format, 85% quality)
+- Ensure proper alt text is used for accessibility
+- All images should reflect the halal/Islamic dining experience
+
+## Recommended Sources:
+- Professional food photography
+- Restaurant interior shots
+- Business/analytics imagery
+- Culturally appropriate imagery that aligns with halal values
+
+Note: The application uses ImageWithFallback component which will show placeholder images if these files are not found.
