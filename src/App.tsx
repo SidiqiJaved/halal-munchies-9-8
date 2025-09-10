@@ -32,7 +32,7 @@ interface AppState {
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>({
-    currentSection: "home",
+    currentSection: "ordering",
     isLoggedIn: false,
     userRole: "customer",
     demoMode: "customer"
@@ -63,7 +63,7 @@ export default function App() {
     updateAppState({
       isLoggedIn: false,
       userRole: "customer",
-      currentSection: "home",
+      currentSection: "ordering",
       demoMode: "customer"
     });
   };
@@ -93,7 +93,7 @@ export default function App() {
     } else {
       newState.isLoggedIn = false;
       newState.userRole = "customer";
-      newState.currentSection = "home";
+      newState.currentSection = "ordering";
     }
 
     updateAppState(newState);
@@ -152,11 +152,11 @@ export default function App() {
       case "ordering":
         return <OnlineOrdering onBackToHome={() => handleSectionChange("home")} />;
       case "catering":
-        return <CateringSection onBackToHome={() => handleSectionChange("home")} />;
+        return <CateringSection onBackToHome={() => handleSectionChange("ordering")} />;
       case "locations":
-        return <LocationsSection onBackToHome={() => handleSectionChange("home")} />;
+        return <LocationsSection onBackToHome={() => handleSectionChange("ordering")} />;
       case "contact":
-        return <ContactSection onBackToHome={() => handleSectionChange("home")} />;
+        return <ContactSection onBackToHome={() => handleSectionChange("ordering")} />;
       default:
         return <CustomerWebsite onSectionChange={handleSectionChange} />;
     }

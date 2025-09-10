@@ -26,11 +26,11 @@ export function Footer() {
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="h-4 w-4 text-halal-gold" />
-                <span className="text-sm text-gray-300">support@halalmunchies.com</span>
+                <span className="text-sm text-gray-300">support@eathalalmunchies.com</span>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="h-4 w-4 text-halal-gold" />
-                <span className="text-sm text-gray-300">123 Main St, Franchise HQ</span>
+                <span className="text-sm text-gray-300">69-21 164th St Fresh Meadows</span>
               </div>
             </div>
           </div>

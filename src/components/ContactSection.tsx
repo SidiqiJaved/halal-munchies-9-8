@@ -24,7 +24,7 @@ export function ContactSection({ onBackToHome }: ContactSectionProps) {
       icon: Mail,
       title: "Email Us",
       description: "Send us your questions",
-      info: "hello@halalmunchies.com",
+      info: "hello@eathalalmunchies.com",
       subInfo: "Response within 24 hours",
       color: "bg-halal-gold"
     },
@@ -190,7 +190,7 @@ export function ContactSection({ onBackToHome }: ContactSectionProps) {
                   <Mail className="h-5 w-5 text-halal-gold" />
                   <div>
                     <p className="font-medium">Email</p>
-                    <p className="text-sm text-gray-600">hello@halalmunchies.com</p>
+                    <p className="text-sm text-gray-600">hello@eathalalmunchies.com</p>
                   </div>
                 </div>
                 
@@ -199,9 +199,8 @@ export function ContactSection({ onBackToHome }: ContactSectionProps) {
                   <div>
                     <p className="font-medium">Headquarters</p>
                     <p className="text-sm text-gray-600">
-                      123 Main Street<br />
-                      Downtown District<br />
-                      Metropolitan City, MC 12345
+                      69-21 164th St Fresh Meadows<br />
+                      Queens, NY 11365
                     </p>
                   </div>
                 </div>
