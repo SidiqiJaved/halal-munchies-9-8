@@ -71,7 +71,7 @@ export function CustomerWebsite({ onSectionChange }: CustomerWebsiteProps) {
               <div className="space-y-6 text-gray-700 text-lg leading-relaxed">
                 <p>
                   Halal Munchies started with one simple goal: to bring authentic flavors and a welcoming 
-                  experience to our community. From humble beginnings in a small neighborhood kitchen, 
+                  experience to our community. From humble beginnings in a small neighborhood kitchen Queens, NYC, 
                   our passion for serving delicious, certified halal food has grown into something beautiful.
                 </p>
                 
