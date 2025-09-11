@@ -192,7 +192,7 @@ export function CustomerWebsite({ onSectionChange }: CustomerWebsiteProps) {
       <div className="bg-halal-red text-white py-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl mb-4 font-bold">
-            Ready to Experience Amazing Halal Food?
+            Ready to Experience Amazing Halal Food????
           </h2>
           <p className="text-lg mb-8 opacity-95">
             Join thousands of satisfied customers who trust Halal Munchies for their favorite meals.
