@@ -1,0 +1,16 @@
+Need to build out a server in NodeJS Typescript, Sequalize to make the website functional
+
+Change SQLite to Postgres
+
+All models should have 3 fields, created date NOW(), updated date NOW(), enabled Boolean default true
+
+Need table for user logs. Whenever a user takes an action we need user id, category or model, update kind (get,create,update), truncated response, response code, error if available, response time if possible.
+
+Need separate table for update logs for any field that gets updated.
+
+There should be middleware to auto set the owner_id on a table to identify creator.
+
+Build out a deployment pipeline using Azure CLI. Need frontend code to be uploaded with cleared cache. Database to be uploaded, migrated and seeded. API also to be uploaded and restarted using zip and ssh. 
+Clear commands for manual uploading at each point
+Create entities that don't exist on azure, otherwise update them.
+New 'Deployment' folder with frontend folder and readme separately to backend folder and readme.
