@@ -9,6 +9,7 @@ import { CheckCircle, Circle, Play, Book, Clock, Users, Award } from "lucide-rea
 interface TrainingProps {
   onBackToHome: () => void;
   userRole: string;
+  authToken?: string | null;
 }
 
 interface TrainingModule {

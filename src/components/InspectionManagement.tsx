@@ -11,6 +11,7 @@ import { Progress } from "./ui/progress";
 interface InspectionProps {
   onBackToHome: () => void;
   userRole: string;
+  authToken?: string | null;
 }
 
 interface Inspection {

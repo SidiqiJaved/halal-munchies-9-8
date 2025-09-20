@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
-import { MapPin, Clock, Phone, ArrowLeft, Navigation, Star, Car, Search, Loader2, MapIcon } from "lucide-react";
+import { MapPin, Clock, Phone, ArrowLeft, Navigation, Star, Car, Search, Loader2, MapIcon, AlertCircle } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { fetchLocations, Location as ApiLocation } from "../lib/api";
 
 interface LocationsSectionProps {
   onBackToHome: () => void;
 }
 
-interface Location {
-  id: string;
+interface FranchiseLocation {
+  id: number;
   name: string;
   address: string;
   city: string;
@@ -22,7 +23,7 @@ interface Location {
   image: string;
   latitude: number;
   longitude: number;
-  distance?: number; // Distance in miles from user
+  distance?: number;
 }
 
 interface UserLocation {
@@ -30,89 +31,131 @@ interface UserLocation {
   longitude: number;
 }
 
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=1080&q=80";
+
+const LOCATION_META: Record<string, {
+  features: string[];
+  rating: number;
+  isNew?: boolean;
+  image: string;
+  hours: string;
+  phone?: string;
+}> = {
+  HQ: {
+    features: ["Corporate kitchen", "Training hub", "Event space"],
+    rating: 4.9,
+    isNew: false,
+    image: "https://images.unsplash.com/photo-1543353071-10c8ba85a904?auto=format&fit=crop&w=1080&q=80",
+    hours: "Mon-Fri: 9am-6pm",
+    phone: "(415) 555-0101",
+  },
+  "SF-DT": {
+    features: ["Dine-in", "Delivery", "Corporate catering", "Late night"],
+    rating: 4.8,
+    image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1080&q=80",
+    hours: "Daily: 11am-11pm",
+    phone: "(415) 555-0120",
+  },
+  "SF-UP": {
+    features: ["Franchise", "Outdoor seating", "Catering"],
+    rating: 4.7,
+    isNew: true,
+    image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1080&q=80",
+    hours: "Daily: 10:30am-10:30pm",
+    phone: "(415) 555-0188",
+  },
+};
+
 export function LocationsSection({ onBackToHome }: LocationsSectionProps) {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationError, setLocationError] = useState<string>("");
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortedLocations, setSortedLocations] = useState<Location[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<FranchiseLocation[]>([]);
+  const [sortedLocations, setSortedLocations] = useState<FranchiseLocation[]>([]);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 
-  // Static locations data with real coordinates (you can update these with actual locations)
-  const locations: Location[] = [
-    {
-      id: "downtown",
-      name: "Our Main Location",
-      address: "69-21 164th St Fresh Meadows",
-      city: "Queens, NY 11365",
-      phone: "(555) 123-4567",
-      hours: "Mon-Thu: 11am-10pm, Fri-Sat: 11am-11pm, Sun: 12pm-9pm",
-      features: ["Dine-in", "Takeout", "Delivery", "Catering"],
-      rating: 4.8,
-      isNew: false,
-      latitude: 40.7589, // Example: NYC coordinates
-      longitude: -73.9851,
-      image: "https://images.unsplash.com/photo-1747629417823-bdcfab524220?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXN0YXVyYW50JTIwZXh0ZXJpb3IlMjBzdG9yZWZyb250fGVufDF8fHx8MTc1NTY0MzQ1M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-    },
-    {
-      id: "university",
-      name: "University District",
-      address: "456 College Avenue",
-      city: "University Town, UT 67890", 
-      phone: "(555) 234-5678",
-      hours: "Daily: 10am-12am",
-      features: ["Dine-in", "Takeout", "Late-night", "Student discounts"],
-      rating: 4.7,
-      isNew: false,
-      latitude: 40.7505, // Example coordinates
-      longitude: -73.9934,
-      image: "https://images.unsplash.com/photo-1747629417823-bdcfab524220?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXN0YXVyYW50JTIwZXh0ZXJpb3IlMjBzdG9yZWZyb250fGVufDF8fHx8MTc1NTY0MzQ1M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-    },
-    {
-      id: "westside",
-      name: "Westside Mall",
-      address: "789 Shopping Center Blvd",
-      city: "Westside, WS 13579",
-      phone: "(555) 345-6789",
-      hours: "Mon-Sat: 10am-9pm, Sun: 11am-8pm",
-      features: ["Food court", "Takeout", "Family-friendly", "Parking"],
-      rating: 4.6,
-      isNew: true,
-      latitude: 40.7614,
-      longitude: -73.9776,
-      image: "https://images.unsplash.com/photo-1747629417823-bdcfab524220?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXN0YXVyYW50JTIwZXh0ZXJpb3IlMjBzdG9yZWZyb250fGVufDF8fHx8MTc1NTY0MzQ1M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-    },
-    {
-      id: "brooklyn",
-      name: "Brooklyn Heights",
-      address: "321 Montague Street",
-      city: "Brooklyn, NY 11201",
-      phone: "(555) 456-7890",
-      hours: "Mon-Sun: 11am-10pm",
-      features: ["Dine-in", "Takeout", "Delivery", "Outdoor seating"],
-      rating: 4.9,
-      isNew: false,
-      latitude: 40.6962,
-      longitude: -73.9968,
-      image: "https://images.unsplash.com/photo-1747629417823-bdcfab524220?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXN0YXVyYW50JTIwZXh0ZXJpb3IlMjBzdG9yZWZyb250fGVufDF8fHx8MTc1NTY0MzQ1M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-    },
-    {
-      id: "queens",
-      name: "Queens Plaza",
-      address: "567 Northern Blvd",
-      city: "Queens, NY 11101",
-      phone: "(555) 567-8901",
-      hours: "Daily: 10am-11pm",
-      features: ["Dine-in", "Takeout", "Delivery", "Catering", "Halal certified"],
-      rating: 4.8,
-      isNew: true,
-      latitude: 40.7505,
-      longitude: -73.9401,
-      image: "https://images.unsplash.com/photo-1747629417823-bdcfab524220?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXN0YXVyYW50JTIwZXh0ZXJpb3IlMjBzdG9yZWZyb250fGVufDF8fHx8MTc1NTY0MzQ1M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadLocations = async () => {
+      try {
+        setIsLoadingLocations(true);
+        setLocationsError(null);
+
+        const response = await fetchLocations();
+        if (cancelled) return;
+
+        const mapped = response.map((location: ApiLocation) => {
+          const metaKey = (location as { code?: string }).code ?? `id-${location.id}`;
+          const meta = LOCATION_META[metaKey] ?? {
+            features: ["Dine-in", "Takeout"],
+            rating: 4.7,
+            isNew: false,
+            image: FALLBACK_IMAGE,
+            hours: "Daily: 11am-9pm",
+            phone: location.phone ?? "(555) 555-5555",
+          };
+
+          const addressLine2 = (location as { addressLine2?: string | null }).addressLine2;
+          const addressParts = [location.addressLine1, addressLine2].filter(Boolean);
+          const address = addressParts.join(", ") || location.addressLine1;
+          const cityLine = `${location.city}, ${location.state} ${location.postalCode}`;
+
+          const latitude = Number((location as { latitude?: number | string | null }).latitude ?? 0);
+          const longitude = Number((location as { longitude?: number | string | null }).longitude ?? 0);
+
+          return {
+            id: location.id,
+            name: location.name,
+            address,
+            city: cityLine,
+            phone: location.phone || meta.phone || "(555) 555-5555",
+            hours: meta.hours,
+            features: meta.features,
+            rating: meta.rating,
+            isNew: Boolean(meta.isNew),
+            image: meta.image || FALLBACK_IMAGE,
+            latitude: Number.isFinite(latitude) ? latitude : 0,
+            longitude: Number.isFinite(longitude) ? longitude : 0,
+          } satisfies FranchiseLocation;
+        });
+
+        setAvailableLocations(mapped);
+        setSortedLocations(mapped);
+      } catch (error) {
+        if (cancelled) return;
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : "Unable to load locations right now. Please try again later.";
+        setLocationsError(message);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingLocations(false);
+        }
+      }
+    };
+
+    void loadLocations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Calculate distance between two points using Haversine formula
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    if (
+      !Number.isFinite(lat1) ||
+      !Number.isFinite(lon1) ||
+      !Number.isFinite(lat2) ||
+      !Number.isFinite(lon2)
+    ) {
+      return Infinity;
+    }
+
     const R = 3959; // Earth's radius in miles
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -126,12 +169,18 @@ export function LocationsSection({ onBackToHome }: LocationsSectionProps) {
 
   // Get user's location
   const getUserLocation = () => {
+    if (availableLocations.length === 0) {
+      setLocationError("Locations are still loading. Please try again in a moment.");
+      return;
+    }
+
     setIsLoadingLocation(true);
     setLocationError("");
-    
+
     if (!navigator.geolocation) {
       setLocationError("Geolocation is not supported by this browser.");
       setIsLoadingLocation(false);
+      setSortedLocations(availableLocations);
       return;
     }
 
@@ -139,27 +188,28 @@ export function LocationsSection({ onBackToHome }: LocationsSectionProps) {
       (position) => {
         const userLoc = {
           latitude: position.coords.latitude,
-          longitude: position.coords.longitude
+          longitude: position.coords.longitude,
         };
         setUserLocation(userLoc);
         setIsLoadingLocation(false);
-        
-        // Calculate distances and sort locations
-        const locationsWithDistance = locations.map(location => ({
-          ...location,
-          distance: calculateDistance(
-            userLoc.latitude, 
-            userLoc.longitude, 
-            location.latitude, 
-            location.longitude
-          )
-        })).sort((a, b) => (a.distance || 0) - (b.distance || 0));
-        
+
+        const locationsWithDistance = availableLocations
+          .map((location) => ({
+            ...location,
+            distance: calculateDistance(
+              userLoc.latitude,
+              userLoc.longitude,
+              location.latitude,
+              location.longitude
+            ),
+          }))
+          .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
+
         setSortedLocations(locationsWithDistance);
       },
       (error) => {
         setIsLoadingLocation(false);
-        switch(error.code) {
+        switch (error.code) {
           case error.PERMISSION_DENIED:
             setLocationError("Location access denied. Please enable location services and try again.");
             break;
@@ -173,8 +223,7 @@ export function LocationsSection({ onBackToHome }: LocationsSectionProps) {
             setLocationError("An unknown error occurred while getting your location.");
             break;
         }
-        // Show all locations without sorting if location fails
-        setSortedLocations(locations);
+        setSortedLocations(availableLocations);
       }
     );
   };
@@ -187,7 +236,7 @@ export function LocationsSection({ onBackToHome }: LocationsSectionProps) {
   );
 
   // Handle directions
-  const handleDirections = (location: Location) => {
+  const handleDirections = (location: FranchiseLocation) => {
     const query = encodeURIComponent(`${location.address}, ${location.city}`);
     const url = `https://www.google.com/maps/dir/?api=1&destination=${query}`;
     window.open(url, '_blank');
@@ -197,11 +246,6 @@ export function LocationsSection({ onBackToHome }: LocationsSectionProps) {
   const handleCall = (phone: string) => {
     window.location.href = `tel:${phone}`;
   };
-
-  // Initialize locations on component mount
-  useEffect(() => {
-    setSortedLocations(locations);
-  }, []);
 
   const displayedLocations = filteredLocations.length > 0 ? filteredLocations : sortedLocations;
 
@@ -264,15 +308,24 @@ export function LocationsSection({ onBackToHome }: LocationsSectionProps) {
               )}
             </div>
           </div>
-        </div>
       </div>
+    </div>
+
+      {locationsError && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <div className="flex items-center space-x-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            <span>{locationsError}</span>
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 -mt-8 relative z-10">
           <Card className="bg-white shadow-lg text-center">
             <CardContent className="p-6">
-              <div className="text-3xl font-bold text-halal-green mb-2">{locations.length}</div>
+              <div className="text-3xl font-bold text-halal-green mb-2">{availableLocations.length}</div>
               <div className="text-gray-600">Total Locations</div>
             </CardContent>
           </Card>
@@ -319,80 +372,99 @@ export function LocationsSection({ onBackToHome }: LocationsSectionProps) {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {locations.map((location, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow duration-300 border-2 hover:border-halal-gold overflow-hidden">
-              <div className="relative">
-                <ImageWithFallback
-                  src={location.image}
-                  alt={`${location.name} restaurant exterior`}
-                  className="w-full h-48 object-cover"
-                />
-                {location.isNew && (
-                  <div className="absolute top-4 left-4 bg-halal-gold text-white px-3 py-1 rounded-full text-sm font-medium">
-                    New Location!
-                  </div>
-                )}
-                <div className="absolute top-4 right-4 bg-white bg-opacity-90 px-2 py-1 rounded-lg flex items-center">
-                  <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                  <span className="text-sm font-medium">{location.rating}</span>
-                </div>
+        {isLoadingLocations ? (
+          <div className="flex flex-col items-center justify-center py-16 text-halal-green">
+            <Loader2 className="h-8 w-8 animate-spin mb-3" />
+            <p className="font-semibold">Loading nearby locations...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {displayedLocations.length === 0 ? (
+              <div className="col-span-full text-center text-gray-600 py-12">
+                No locations match your search yet. Try another city or check back soon.
               </div>
-              
-              <CardHeader className="pb-4">
-                <CardTitle className="text-xl text-halal-green">{location.name}</CardTitle>
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-start">
-                    <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div>{location.address}</div>
-                      <div>{location.city}</div>
+            ) : (
+              displayedLocations.map((location, index) => (
+                <Card
+                  key={location.id ?? index}
+                  className="hover:shadow-lg transition-shadow duration-300 border-2 hover:border-halal-gold overflow-hidden"
+                >
+                  <div className="relative">
+                    <ImageWithFallback
+                      src={location.image}
+                      alt={`${location.name} restaurant exterior`}
+                      className="w-full h-48 object-cover"
+                    />
+                    {location.isNew && (
+                      <div className="absolute top-4 left-4 bg-halal-gold text-white px-3 py-1 rounded-full text-sm font-medium">
+                        New Location!
+                      </div>
+                    )}
+                    <div className="absolute top-4 right-4 bg-white bg-opacity-90 px-2 py-1 rounded-lg flex items-center">
+                      <Star className="h-4 w-4 text-yellow-500 mr-1" />
+                      <span className="text-sm font-medium">{location.rating}</span>
                     </div>
                   </div>
-                  <div className="flex items-center">
-                    <Phone className="h-4 w-4 mr-2 flex-shrink-0" />
-                    {location.phone}
-                  </div>
-                  <div className="flex items-start">
-                    <Clock className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-                    {location.hours}
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="mb-6">
-                  <div className="flex flex-wrap gap-2">
-                    {location.features.map((feature, featureIndex) => (
-                      <span 
-                        key={featureIndex}
-                        className="bg-halal-green bg-opacity-10 text-halal-green px-2 py-1 rounded-full text-xs"
-                      >
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button 
-                    className="flex-1 bg-halal-green hover:bg-halal-green-dark text-white"
-                  >
-                    <Navigation className="h-4 w-4 mr-2" />
-                    Directions
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    className="flex-1 border-halal-gold text-halal-gold hover:bg-halal-gold hover:text-white"
-                  >
-                    <Phone className="h-4 w-4 mr-2" />
-                    Call
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl text-halal-green">{location.name}</CardTitle>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-start">
+                        <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div>{location.address}</div>
+                          <div>{location.city}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <Phone className="h-4 w-4 mr-2 flex-shrink-0" />
+                        {location.phone}
+                      </div>
+                      <div className="flex items-start">
+                        <Clock className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                        {location.hours}
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent>
+                    <div className="mb-6">
+                      <div className="flex flex-wrap gap-2">
+                        {location.features.map((feature, featureIndex) => (
+                          <span
+                            key={featureIndex}
+                            className="bg-halal-green bg-opacity-10 text-halal-green px-2 py-1 rounded-full text-xs"
+                          >
+                            {feature}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleDirections(location)}
+                          className="border-halal-green text-halal-green hover:bg-halal-green hover:text-white"
+                        >
+                          <Navigation className="h-4 w-4 mr-2" />
+                          Directions
+                        </Button>
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Car className="h-4 w-4 mr-2" />
+                        {location.distance && Number.isFinite(location.distance)
+                          ? `${location.distance.toFixed(1)} miles away`
+                          : "Distance unavailable"}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* Call to Action */}

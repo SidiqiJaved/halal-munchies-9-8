@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 interface InventoryProps {
   onBackToHome: () => void;
+  authToken?: string | null;
 }
 
 interface InventoryItem {

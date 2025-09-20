@@ -1,160 +1,129 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { ShoppingCart, Plus, Minus, Star, Clock, Users } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Star, Clock, Users, Loader2, AlertCircle } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { createOrder, fetchMenuItems, MenuItem as ApiMenuItem, OrderRecord } from "../lib/api";
 
 interface OrderingProps {
   onBackToHome: () => void;
 }
 
 interface CartItem {
-  id: string;
+  id: number;
   name: string;
   price: number;
   quantity: number;
-  image: string;
+  imageUrl?: string | null;
 }
 
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  image: string;
-  category: string;
-  isHalal: boolean;
-  prepTime: string;
-  servings: string;
-  rating: number;
-}
+type MenuItem = ApiMenuItem;
 
 export function OnlineOrdering({ onBackToHome }: OrderingProps) {
-  const [currentStep, setCurrentStep] = useState<'menu' | 'cart' | 'checkout' | 'confirmation'>('menu');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [orderDetails, setOrderDetails] = useState({
+  const initialOrderDetails = {
     name: '',
     email: '',
     phone: '',
-    address: '',
-    specialInstructions: ''
-  });
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    specialInstructions: '',
+  };
 
-  const categories = [
-    { id: 'all', name: 'All Items' },
-    { id: 'appetizers', name: 'Appetizers' },
-    { id: 'mains', name: 'Main Courses' },
-    { id: 'platters', name: 'Catering Platters' },
-    { id: 'sides', name: 'Sides' },
-    { id: 'desserts', name: 'Desserts' },
-    { id: 'beverages', name: 'Beverages' }
-  ];
+  const [currentStep, setCurrentStep] = useState<'menu' | 'cart' | 'checkout' | 'confirmation'>('menu');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [isLoadingMenu, setIsLoadingMenu] = useState(false);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [orderDetails, setOrderDetails] = useState(initialOrderDetails);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [confirmationOrder, setConfirmationOrder] = useState<OrderRecord | null>(null);
+  const [confirmedContact, setConfirmedContact] = useState<{ name: string; email: string } | null>(null);
 
-  const menuItems: MenuItem[] = [
-    {
-      id: '1',
-      name: 'Halal Chicken Biryani Platter',
-      description: 'Aromatic basmati rice with tender halal chicken, served with raita and pickles',
-      price: 35.99,
-      image: 'https://images.unsplash.com/photo-1563379091339-03246963d51a?w=400',
-      category: 'platters',
-      isHalal: true,
-      prepTime: '45 min',
-      servings: '10-12 people',
-      rating: 4.8
-    },
-    {
-      id: '2',
-      name: 'Mediterranean Mezze Platter',
-      description: 'Hummus, baba ganoush, tabbouleh, dolmas, and fresh vegetables with pita',
-      price: 28.99,
-      image: 'https://images.unsplash.com/photo-1551782450-17144efb9c50?w=400',
-      category: 'platters',
-      isHalal: true,
-      prepTime: '30 min',
-      servings: '8-10 people',
-      rating: 4.6
-    },
-    {
-      id: '3',
-      name: 'Halal Beef Kebab Platter',
-      description: 'Grilled halal beef kebabs with rice, grilled vegetables, and tzatziki',
-      price: 42.99,
-      image: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?w=400',
-      category: 'platters',
-      isHalal: true,
-      prepTime: '40 min',
-      servings: '12-15 people',
-      rating: 4.9
-    },
-    {
-      id: '4',
-      name: 'Falafel & Hummus Bowl',
-      description: 'Crispy falafels with creamy hummus, fresh salad, and tahini sauce',
-      price: 8.99,
-      image: 'https://images.unsplash.com/photo-1595909315417-2d5216e3c9d0?w=400',
-      category: 'mains',
-      isHalal: true,
-      prepTime: '15 min',
-      servings: '1 person',
-      rating: 4.7
-    },
-    {
-      id: '5',
-      name: 'Halal Chicken Shawarma',
-      description: 'Tender halal chicken shawarma in warm pita with garlic sauce and vegetables',
-      price: 9.99,
-      image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400',
-      category: 'mains',
-      isHalal: true,
-      prepTime: '12 min',
-      servings: '1 person',
-      rating: 4.8
-    },
-    {
-      id: '6',
-      name: 'Baklava Assortment',
-      description: 'Traditional honey-sweetened baklava with pistachios and almonds',
-      price: 6.99,
-      image: 'https://images.unsplash.com/photo-1571197845891-8fefe0c29e05?w=400',
-      category: 'desserts',
-      isHalal: true,
-      prepTime: '5 min',
-      servings: '6-8 pieces',
-      rating: 4.5
+  const formatCategoryLabel = (category: string) =>
+    category
+      .split(/[\s_-]+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+  const categories = useMemo(() => {
+    if (menuItems.length === 0) {
+      return [{ id: 'all', name: 'All Items' }];
     }
-  ];
+
+    const unique = Array.from(new Set(menuItems.map((item) => item.category))).sort();
+    return [
+      { id: 'all', name: 'All Items' },
+      ...unique.map((category) => ({ id: category, name: formatCategoryLabel(category) })),
+    ];
+  }, [menuItems]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingMenu(true);
+    fetchMenuItems()
+      .then((items) => {
+        if (!cancelled) {
+          setMenuItems(items);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          const message =
+            error instanceof Error && error.message
+              ? error.message
+              : 'Failed to load menu. Please try again shortly.';
+          setMenuError(message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingMenu(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   const filteredItems = selectedCategory === 'all' 
     ? menuItems 
     : menuItems.filter(item => item.category === selectedCategory);
 
   const addToCart = (item: MenuItem) => {
-    setCart(prev => {
-      const existing = prev.find(cartItem => cartItem.id === item.id);
+    setCart((prev) => {
+      const existing = prev.find((cartItem) => cartItem.id === item.id);
       if (existing) {
-        return prev.map(cartItem => 
-          cartItem.id === item.id 
+        return prev.map((cartItem) =>
+          cartItem.id === item.id
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem
         );
       }
-      return [...prev, {
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: 1,
-        image: item.image
-      }];
+      return [
+        ...prev,
+        {
+          id: item.id,
+          name: item.name,
+          price: Number(item.price),
+          quantity: 1,
+          imageUrl: item.imageUrl ?? null,
+        },
+      ];
     });
   };
 
-  const updateQuantity = (id: string, change: number) => {
+  const updateQuantity = (id: number, change: number) => {
     setCart(prev => {
       return prev.map(item => {
         if (item.id === id) {
@@ -171,12 +140,60 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+    setSubmitError(null);
+    setConfirmedContact(null);
     setCurrentStep('checkout');
   };
 
-  const handlePlaceOrder = () => {
-    if (!orderDetails.name || !orderDetails.email || !orderDetails.phone) return;
-    setCurrentStep('confirmation');
+  const handlePlaceOrder = async () => {
+    if (cart.length === 0) {
+      setSubmitError('Your cart is empty. Please add at least one item.');
+      return;
+    }
+
+    if (
+      !orderDetails.name ||
+      !orderDetails.email ||
+      !orderDetails.phone ||
+      !orderDetails.addressLine1 ||
+      !orderDetails.city ||
+      !orderDetails.state ||
+      !orderDetails.postalCode
+    ) {
+      setSubmitError('Please complete all required delivery details before placing your order.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+
+      const { order } = await createOrder({
+        customerName: orderDetails.name,
+        email: orderDetails.email,
+        phone: orderDetails.phone,
+        addressLine1: orderDetails.addressLine1,
+        addressLine2: orderDetails.addressLine2 || undefined,
+        city: orderDetails.city,
+        state: orderDetails.state,
+        postalCode: orderDetails.postalCode,
+        specialInstructions: orderDetails.specialInstructions || undefined,
+        items: cart.map(item => ({ menuItemId: item.id, quantity: item.quantity })),
+      });
+      setConfirmedContact({ name: orderDetails.name, email: orderDetails.email });
+      setConfirmationOrder(order);
+      setCurrentStep('confirmation');
+      setCart([]);
+      setOrderDetails(initialOrderDetails);
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Unable to place the order right now. Please try again later.';
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (currentStep === 'menu') {
@@ -237,12 +254,29 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
           </div>
 
           {/* Menu Items */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredItems.map(item => (
-              <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+          {isLoadingMenu ? (
+            <div className="flex flex-col items-center justify-center py-16 text-halal-green">
+              <Loader2 className="h-8 w-8 animate-spin mb-3" />
+              <p className="font-semibold">Loading our latest menu...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {menuError && (
+                <div className="col-span-full flex items-center space-x-3 rounded-md border border-red-200 bg-red-50 p-4 text-red-700">
+                  <AlertCircle className="h-5 w-5" />
+                  <span>{menuError}</span>
+                </div>
+              )}
+              {filteredItems.length === 0 && !menuError ? (
+                <div className="col-span-full text-center text-gray-600 py-12">
+                  No items match this category yet. Please choose another category or check back soon.
+                </div>
+              ) : (
+                filteredItems.map((item) => (
+                  <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative">
                   <ImageWithFallback
-                    src={item.image}
+                    src={item.imageUrl || "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=800&q=80"}
                     alt={item.name}
                     className="w-full h-48 object-cover"
                   />
@@ -253,7 +287,7 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                   )}
                   <div className="absolute top-2 right-2 flex items-center bg-white rounded-full px-2 py-1">
                     <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="text-sm ml-1">{item.rating}</span>
+                    <span className="text-sm ml-1">{item.rating ?? "4.8"}</span>
                   </div>
                 </div>
                 
@@ -264,11 +298,11 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <div className="flex items-center">
                       <Clock className="h-4 w-4 mr-1" />
-                      {item.prepTime}
+                      {item.prepTimeMinutes ? `${item.prepTimeMinutes} min` : "Custom prep"}
                     </div>
                     <div className="flex items-center">
                       <Users className="h-4 w-4 mr-1" />
-                      {item.servings}
+                      {item.servings || "Serves 2-3"}
                     </div>
                   </div>
                 </CardHeader>
@@ -276,7 +310,7 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <span className="text-2xl font-bold text-halal-green">
-                      ${item.price}
+                      ${Number(item.price).toFixed(2)}
                     </span>
                     <Button
                       onClick={() => addToCart(item)}
@@ -287,9 +321,11 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
-            ))}
-          </div>
+                </Card>
+              ))
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -325,7 +361,7 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                     <CardContent className="p-4">
                       <div className="flex items-center space-x-4">
                         <ImageWithFallback
-                          src={item.image}
+                          src={item.imageUrl || "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=400&q=80"}
                           alt={item.name}
                           className="w-16 h-16 object-cover rounded"
                         />
@@ -443,14 +479,51 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="address">Delivery Address</Label>
-                    <Textarea
-                      id="address"
-                      value={orderDetails.address}
-                      onChange={(e) => setOrderDetails(prev => ({ ...prev, address: e.target.value }))}
-                      placeholder="Enter delivery address"
-                      rows={3}
+                    <Label htmlFor="address-line1">Address Line 1 *</Label>
+                    <Input
+                      id="address-line1"
+                      value={orderDetails.addressLine1}
+                      onChange={(e) => setOrderDetails(prev => ({ ...prev, addressLine1: e.target.value }))}
+                      placeholder="Street address, company, c/o"
                     />
+                  </div>
+                  <div>
+                    <Label htmlFor="address-line2">Address Line 2</Label>
+                    <Input
+                      id="address-line2"
+                      value={orderDetails.addressLine2}
+                      onChange={(e) => setOrderDetails(prev => ({ ...prev, addressLine2: e.target.value }))}
+                      placeholder="Apartment, suite, unit, building"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="city">City *</Label>
+                      <Input
+                        id="city"
+                        value={orderDetails.city}
+                        onChange={(e) => setOrderDetails(prev => ({ ...prev, city: e.target.value }))}
+                        placeholder="City"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="state">State *</Label>
+                      <Input
+                        id="state"
+                        value={orderDetails.state}
+                        onChange={(e) => setOrderDetails(prev => ({ ...prev, state: e.target.value }))}
+                        placeholder="State"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="postalCode">Postal Code *</Label>
+                      <Input
+                        id="postalCode"
+                        value={orderDetails.postalCode}
+                        onChange={(e) => setOrderDetails(prev => ({ ...prev, postalCode: e.target.value }))}
+                        placeholder="ZIP / Postal code"
+                      />
+                    </div>
                   </div>
                   <div>
                     <Label htmlFor="instructions">Special Instructions</Label>
@@ -462,6 +535,12 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                       rows={3}
                     />
                   </div>
+                  {submitError && (
+                    <div className="flex items-center space-x-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{submitError}</span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -494,9 +573,25 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                     <Button
                       onClick={handlePlaceOrder}
                       className="w-full bg-halal-gold hover:bg-halal-gold-dark text-white"
-                      disabled={!orderDetails.name || !orderDetails.email || !orderDetails.phone}
+                      disabled={
+                        isSubmitting ||
+                        !orderDetails.name ||
+                        !orderDetails.email ||
+                        !orderDetails.phone ||
+                        !orderDetails.addressLine1 ||
+                        !orderDetails.city ||
+                        !orderDetails.state ||
+                        !orderDetails.postalCode
+                      }
                     >
-                      Place Order
+                      {isSubmitting ? (
+                        <span className="flex items-center justify-center">
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Processing...
+                        </span>
+                      ) : (
+                        'Place Order'
+                      )}
                     </Button>
                     <Button
                       variant="outline"
@@ -516,8 +611,19 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
   }
 
   if (currentStep === 'confirmation') {
-    const orderNumber = `HM${Date.now().toString().slice(-6)}`;
-    
+    const orderId =
+      confirmationOrder && typeof confirmationOrder.id === 'number'
+        ? `HM${String(confirmationOrder.id).padStart(6, '0')}`
+        : `HM${Date.now().toString().slice(-6)}`;
+
+    const lineItems = confirmationOrder?.items ?? [];
+
+    const totalAmount = typeof confirmationOrder?.total === 'number'
+      ? confirmationOrder.total
+      : cartTotal;
+
+    const contactEmail = confirmedContact?.email ?? orderDetails.email;
+
     return (
       <div className="min-h-screen bg-halal-cream">
         <div className="bg-halal-green text-white py-8">
@@ -536,24 +642,28 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                 </svg>
               </div>
               
-              <h2 className="text-2xl text-halal-green mb-4">Order #{orderNumber}</h2>
+              <h2 className="text-2xl text-halal-green mb-4">Order #{orderId}</h2>
               <p className="text-gray-600 mb-6">
                 Your order has been confirmed and we're preparing it now. 
-                A confirmation email has been sent to {orderDetails.email}.
+                {contactEmail ? `A confirmation email has been sent to ${contactEmail}.` : 'We will email you the confirmation shortly.'}
               </p>
               
               <div className="bg-halal-cream p-6 rounded-lg mb-6">
                 <h3 className="font-medium text-halal-green mb-4">Order Details</h3>
                 <div className="space-y-2 text-left">
-                  {cart.map(item => (
-                    <div key={item.id} className="flex justify-between">
-                      <span>{item.name} × {item.quantity}</span>
-                      <span>${(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
+                  {lineItems.length > 0
+                    ? lineItems.map((item) => (
+                        <div key={item.id} className="flex justify-between">
+                          <span>{item.nameSnapshot} × {item.quantity}</span>
+                          <span>${(Number(item.unitPrice) * item.quantity).toFixed(2)}</span>
+                        </div>
+                      ))
+                    : (
+                        <div className="text-gray-600">Your order details will arrive in the confirmation email.</div>
+                      )}
                   <div className="border-t pt-2 flex justify-between font-bold text-halal-green">
                     <span>Total:</span>
-                    <span>${cartTotal.toFixed(2)}</span>
+                    <span>${Number(totalAmount).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -563,6 +673,8 @@ export function OnlineOrdering({ onBackToHome }: OrderingProps) {
                   onClick={() => {
                     setCart([]);
                     setCurrentStep('menu');
+                    setConfirmationOrder(null);
+                    setConfirmedContact(null);
                   }}
                   className="bg-halal-green hover:bg-halal-green-dark text-white"
                 >
