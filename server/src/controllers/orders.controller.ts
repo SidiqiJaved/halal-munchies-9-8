@@ -5,6 +5,7 @@ import { MenuItem } from "../models/menu-item.model";
 import { Order, OrderStatus } from "../models/order.model";
 import { OrderItem } from "../models/order-item.model";
 import { AppError } from "../utils/AppError";
+import { logFieldChanges } from "../middleware/auditMiddleware";
 
 interface OrderItemInput {
   menuItemId: number;
@@ -88,6 +89,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         tax,
         total,
         locationId: locationId || null,
+        ownerId: req.user?.id ?? null,
       },
       { transaction }
     );
@@ -96,6 +98,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       orderItemsPayload.map((item) => ({
         ...item,
         orderId: order.id,
+        ownerId: req.user?.id ?? null,
       })),
       { transaction }
     );
@@ -180,6 +183,8 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
     throw new AppError("Order not found", 404);
   }
 
+  const previous = order.get({ plain: true });
+
   if (status) {
     order.status = status;
   }
@@ -191,6 +196,13 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
   }
 
   await order.save();
+  await logFieldChanges({
+    userId: req.user?.id ?? null,
+    modelName: "Order",
+    recordId: order.id,
+    previous,
+    next: order.get({ plain: true }),
+  });
 
   res.json({ order });
 };

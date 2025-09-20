@@ -300,8 +300,6 @@ export const seedDatabase = async (): Promise<void> => {
           saturday: "Closed",
           sunday: "Closed",
         },
-        latitude: 37.7897,
-        longitude: -122.3942,
         isCorporate: true,
       },
       {
@@ -324,8 +322,6 @@ export const seedDatabase = async (): Promise<void> => {
           saturday: "10:00 AM - 11:00 PM",
           sunday: "10:00 AM - 9:00 PM",
         },
-        latitude: 37.7891,
-        longitude: -122.4011,
         isCorporate: false,
       },
       {
@@ -348,8 +344,6 @@ export const seedDatabase = async (): Promise<void> => {
           saturday: "10:30 AM - 10:30 PM",
           sunday: "10:30 AM - 8:30 PM",
         },
-        latitude: 37.8021,
-        longitude: -122.4106,
         isCorporate: false,
       },
     ],
@@ -395,7 +389,22 @@ export const seedDatabase = async (): Promise<void> => {
     { returning: true }
   );
 
-  const menuItems = await MenuItem.bulkCreate(menuSeed, { returning: true });
+  await Promise.all([
+    hq.update({ ownerId: adminUser.id }),
+    downtown.update({ ownerId: adminUser.id }),
+    uptown.update({ ownerId: adminUser.id }),
+    adminUser.update({ ownerId: adminUser.id }),
+    managerUser.update({ ownerId: adminUser.id }),
+    employeeUser.update({ ownerId: managerUser.id }),
+  ]);
+
+  const menuItems = await MenuItem.bulkCreate(
+    menuSeed.map((item) => ({
+      ...item,
+      ownerId: adminUser.id,
+    })),
+    { returning: true }
+  );
 
   const sampleOrder = await Order.create({
     customerName: "Jamal Reynolds",
@@ -411,6 +420,7 @@ export const seedDatabase = async (): Promise<void> => {
     status: "confirmed",
     specialInstructions: "Deliver to loading dock",
     locationId: downtown.id,
+    ownerId: managerUser.id,
   });
 
   await OrderItem.bulkCreate([
@@ -421,6 +431,7 @@ export const seedDatabase = async (): Promise<void> => {
       imageUrlSnapshot: menuItems[0].imageUrl,
       quantity: 1,
       unitPrice: menuItems[0].price,
+      ownerId: managerUser.id,
     },
     {
       orderId: sampleOrder.id,
@@ -429,6 +440,7 @@ export const seedDatabase = async (): Promise<void> => {
       imageUrlSnapshot: menuItems[3].imageUrl,
       quantity: 2,
       unitPrice: menuItems[3].price,
+      ownerId: managerUser.id,
     },
   ]);
 
@@ -437,12 +449,25 @@ export const seedDatabase = async (): Promise<void> => {
       InventoryItem.create({
         ...item,
         locationId: downtown.id,
+        ownerId: managerUser.id,
       })
     )
   );
 
-  const modules = await TrainingModule.bulkCreate(trainingModulesSeed, { returning: true });
-  const checklistItems = await ChecklistItem.bulkCreate(checklistSeed, { returning: true });
+  const modules = await TrainingModule.bulkCreate(
+    trainingModulesSeed.map((module) => ({
+      ...module,
+      ownerId: adminUser.id,
+    })),
+    { returning: true }
+  );
+  const checklistItems = await ChecklistItem.bulkCreate(
+    checklistSeed.map((item) => ({
+      ...item,
+      ownerId: adminUser.id,
+    })),
+    { returning: true }
+  );
 
   await TrainingProgress.bulkCreate([
     {
@@ -451,6 +476,7 @@ export const seedDatabase = async (): Promise<void> => {
       progressPercent: 100,
       isCompleted: true,
       completedAt: new Date(),
+      ownerId: employeeUser.id,
     },
     {
       userId: employeeUser.id,
@@ -458,6 +484,7 @@ export const seedDatabase = async (): Promise<void> => {
       progressPercent: 100,
       isCompleted: true,
       completedAt: new Date(),
+      ownerId: employeeUser.id,
     },
     {
       userId: employeeUser.id,
@@ -465,6 +492,7 @@ export const seedDatabase = async (): Promise<void> => {
       progressPercent: 100,
       isCompleted: true,
       completedAt: new Date(),
+      ownerId: employeeUser.id,
     },
   ]);
 
@@ -474,6 +502,7 @@ export const seedDatabase = async (): Promise<void> => {
       checklistItemId: item.id,
       isCompleted: true,
       completedAt: new Date(),
+      ownerId: employeeUser.id,
     }))
   );
 
@@ -482,6 +511,7 @@ export const seedDatabase = async (): Promise<void> => {
       Inspection.create({
         ...seed,
         locationId: index === 0 ? downtown.id : uptown.id,
+        ownerId: managerUser.id,
       })
     )
   );
@@ -498,6 +528,7 @@ export const seedDatabase = async (): Promise<void> => {
       notes: "Need separate station for gluten-free options",
       status: "reviewing",
       locationId: downtown.id,
+      ownerId: managerUser.id,
     },
     {
       customerName: "Bay Area Muslim Association",
@@ -510,6 +541,7 @@ export const seedDatabase = async (): Promise<void> => {
       notes: "Requesting on-site chef demonstration",
       status: "new",
       locationId: uptown.id,
+      ownerId: adminUser.id,
     },
   ]);
 

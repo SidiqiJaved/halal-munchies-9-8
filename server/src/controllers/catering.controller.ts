@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { CateringRequest } from "../models/catering-request.model";
 import { Location } from "../models/location.model";
 import { AppError } from "../utils/AppError";
+import { logFieldChanges } from "../middleware/auditMiddleware";
 
 export const createCateringRequest = async (req: Request, res: Response): Promise<void> => {
   const { customerName, email, phone, eventDate, eventType, guestCount, packageName, notes, locationId } = req.body;
@@ -21,6 +22,7 @@ export const createCateringRequest = async (req: Request, res: Response): Promis
     notes: notes || null,
     locationId: locationId || null,
     status: "new",
+    ownerId: req.user?.id ?? null,
   });
 
   res.status(201).json({ request: requestRecord });
@@ -79,6 +81,8 @@ export const updateCateringRequest = async (req: Request, res: Response): Promis
     throw new AppError("Catering request not found", 404);
   }
 
+  const previous = request.get({ plain: true });
+
   const { status, notes, locationId, packageName, eventDate, guestCount } = req.body;
 
   request.status = status ?? request.status;
@@ -89,6 +93,13 @@ export const updateCateringRequest = async (req: Request, res: Response): Promis
   request.guestCount = guestCount ?? request.guestCount;
 
   await request.save();
+  await logFieldChanges({
+    userId: req.user?.id ?? null,
+    modelName: "CateringRequest",
+    recordId: request.id,
+    previous,
+    next: request.get({ plain: true }),
+  });
 
   res.json({ request });
 };

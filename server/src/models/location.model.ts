@@ -1,11 +1,13 @@
 import {
   CreationOptional,
   DataTypes,
+  ForeignKey,
   InferAttributes,
   InferCreationAttributes,
   Model,
 } from "sequelize";
 import sequelize from "../config/database";
+import type { User } from "./user.model";
 
 export class Location extends Model<
   InferAttributes<Location>,
@@ -24,6 +26,8 @@ export class Location extends Model<
   declare email: string | null;
   declare timezone: string | null;
   declare hours: Record<string, string> | null;
+  declare ownerId: ForeignKey<User["id"]> | null;
+  declare enabled: CreationOptional<boolean>;
   declare latitude: number | null;
   declare longitude: number | null;
   declare isCorporate: CreationOptional<boolean>;
@@ -92,6 +96,21 @@ export const initLocationModel = () => {
         type: DataTypes.JSON,
         allowNull: true,
       },
+      ownerId: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: true,
+        references: {
+          model: "users",
+          key: "id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+      enabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
       latitude: {
         type: DataTypes.DECIMAL(10, 6),
         allowNull: true,
@@ -105,8 +124,16 @@ export const initLocationModel = () => {
         allowNull: false,
         defaultValue: false,
       },
-      createdAt: DataTypes.DATE,
-      updatedAt: DataTypes.DATE,
+      createdAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
     },
     {
       sequelize,

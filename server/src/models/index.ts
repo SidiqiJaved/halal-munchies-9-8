@@ -1,3 +1,4 @@
+import type { Model as SequelizeModel, ModelStatic } from "sequelize";
 import sequelize from "../config/database";
 import { ChecklistItem, initChecklistItemModel } from "./checklist-item.model";
 import {
@@ -20,6 +21,8 @@ import {
   TrainingProgress,
 } from "./training-progress.model";
 import { initUserModel, User } from "./user.model";
+import { initUserLogModel, UserLog } from "./user-log.model";
+import { initUpdateLogModel, UpdateLog } from "./update-log.model";
 
 let initialized = false;
 
@@ -37,6 +40,8 @@ export const initModels = async (): Promise<void> => {
     initChecklistProgressModel();
     initInspectionModel();
     initCateringRequestModel();
+    initUserLogModel();
+    initUpdateLogModel();
 
     Location.hasMany(User, {
       foreignKey: "locationId",
@@ -137,6 +142,58 @@ export const initModels = async (): Promise<void> => {
       as: "location",
     });
 
+    type AuditableModel = ModelStatic<SequelizeModel> & {
+      getAttributes: () => Record<string, unknown>;
+    };
+
+    const ownerAssociations: Array<{ model: AuditableModel; alias: string }> = [
+      { model: Location, alias: "ownedLocations" },
+      { model: MenuItem, alias: "ownedMenuItems" },
+      { model: Order, alias: "ownedOrders" },
+      { model: OrderItem, alias: "ownedOrderItems" },
+      { model: InventoryItem, alias: "ownedInventoryItems" },
+      { model: TrainingModule, alias: "ownedTrainingModules" },
+      { model: TrainingProgress, alias: "ownedTrainingProgress" },
+      { model: ChecklistItem, alias: "ownedChecklistItems" },
+      { model: ChecklistProgress, alias: "ownedChecklistProgress" },
+      { model: Inspection, alias: "ownedInspections" },
+      { model: CateringRequest, alias: "ownedCateringRequests" },
+      { model: UserLog, alias: "ownedUserLogs" },
+      { model: UpdateLog, alias: "ownedUpdateLogs" },
+      { model: User, alias: "ownedUsers" },
+    ];
+
+    ownerAssociations.forEach(({ model, alias }) => {
+      if (model.getAttributes && Object.prototype.hasOwnProperty.call(model.getAttributes(), "ownerId")) {
+        User.hasMany(model as never, {
+          foreignKey: "ownerId",
+          as: alias,
+        });
+        (model as never).belongsTo(User, {
+          foreignKey: "ownerId",
+          as: "owner",
+        });
+      }
+    });
+
+    User.hasMany(UserLog, {
+      foreignKey: "userId",
+      as: "logs",
+    });
+    UserLog.belongsTo(User, {
+      foreignKey: "userId",
+      as: "user",
+    });
+
+    User.hasMany(UpdateLog, {
+      foreignKey: "userId",
+      as: "updateLogs",
+    });
+    UpdateLog.belongsTo(User, {
+      foreignKey: "userId",
+      as: "user",
+    });
+
     initialized = true;
   }
 
@@ -156,5 +213,7 @@ export {
   OrderItem,
   TrainingModule,
   TrainingProgress,
+  UpdateLog,
+  UserLog,
   User,
 };

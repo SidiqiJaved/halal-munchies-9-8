@@ -3,6 +3,7 @@ import { Op } from "sequelize";
 import { Location } from "../models/location.model";
 import { User } from "../models/user.model";
 import { AppError } from "../utils/AppError";
+import { logFieldChanges } from "../middleware/auditMiddleware";
 
 export const listUsers = async (req: Request, res: Response): Promise<void> => {
   const { role, search } = req.query;
@@ -74,6 +75,8 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     throw new AppError("User not found", 404);
   }
 
+  const previous = user.get({ plain: true });
+
   user.name = name ?? user.name;
   user.email = email ?? user.email;
   user.phone = phone ?? user.phone;
@@ -85,6 +88,13 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
   }
 
   await user.save();
+  await logFieldChanges({
+    userId: req.user?.id ?? null,
+    modelName: "User",
+    recordId: user.id,
+    previous,
+    next: user.get({ plain: true }),
+  });
 
   res.json({
     user: {

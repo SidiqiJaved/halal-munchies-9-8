@@ -9,72 +9,30 @@ import {
 import sequelize from "../config/database";
 import type { User } from "./user.model";
 
-export class MenuItem extends Model<
-  InferAttributes<MenuItem>,
-  InferCreationAttributes<MenuItem>
-> {
+export class UserLog extends Model<InferAttributes<UserLog>, InferCreationAttributes<UserLog>> {
   declare id: CreationOptional<number>;
-  declare name: string;
-  declare description: string;
+  declare userId: ForeignKey<User["id"]> | null;
   declare category: string;
-  declare price: number;
-  declare imageUrl: string | null;
-  declare isHalal: CreationOptional<boolean>;
-  declare prepTimeMinutes: number | null;
-  declare servings: string | null;
-  declare rating: number | null;
-  declare ownerId: ForeignKey<User["id"]> | null;
+  declare action: string;
+  declare responseCode: number;
+  declare responseSnippet: string | null;
+  declare errorMessage: string | null;
+  declare responseTimeMs: number | null;
+  declare metadata: Record<string, unknown> | null;
   declare enabled: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
 
-export const initMenuItemModel = () => {
-  MenuItem.init(
+export const initUserLogModel = () => {
+  UserLog.init(
     {
       id: {
         type: DataTypes.INTEGER.UNSIGNED,
         autoIncrement: true,
         primaryKey: true,
       },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      description: {
-        type: DataTypes.TEXT,
-        allowNull: false,
-      },
-      category: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      price: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      imageUrl: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      isHalal: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true,
-      },
-      prepTimeMinutes: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
-      servings: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      rating: {
-        type: DataTypes.DECIMAL(3, 2),
-        allowNull: true,
-      },
-      ownerId: {
+      userId: {
         type: DataTypes.INTEGER.UNSIGNED,
         allowNull: true,
         references: {
@@ -83,6 +41,35 @@ export const initMenuItemModel = () => {
         },
         onUpdate: "CASCADE",
         onDelete: "SET NULL",
+      },
+      category: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      action: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      responseCode: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 200,
+      },
+      responseSnippet: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      errorMessage: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      responseTimeMs: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      metadata: {
+        type: DataTypes.JSONB,
+        allowNull: true,
       },
       enabled: {
         type: DataTypes.BOOLEAN,
@@ -102,7 +89,7 @@ export const initMenuItemModel = () => {
     },
     {
       sequelize,
-      tableName: "menu_items",
+      tableName: "user_logs",
       underscored: true,
     }
   );

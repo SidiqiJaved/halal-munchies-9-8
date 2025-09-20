@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Op } from "sequelize";
 import { InventoryItem } from "../models/inventory-item.model";
 import { AppError } from "../utils/AppError";
+import { logFieldChanges } from "../middleware/auditMiddleware";
 
 const getSummary = (items: InventoryItem[]) => {
   const now = new Date();
@@ -99,6 +100,7 @@ export const createInventoryItem = async (req: Request, res: Response): Promise<
     lastRestocked: lastRestocked || null,
     expiryDate: expiryDate || null,
     locationId: locationId || null,
+    ownerId: req.user?.id ?? null,
   });
 
   res.status(201).json({ item });
@@ -110,6 +112,8 @@ export const updateInventoryItem = async (req: Request, res: Response): Promise<
   if (!item) {
     throw new AppError("Inventory item not found", 404);
   }
+
+  const previous = item.get({ plain: true });
 
   const {
     name,
@@ -138,6 +142,13 @@ export const updateInventoryItem = async (req: Request, res: Response): Promise<
   item.locationId = locationId ?? item.locationId;
 
   await item.save();
+  await logFieldChanges({
+    userId: req.user?.id ?? null,
+    modelName: "InventoryItem",
+    recordId: item.id,
+    previous,
+    next: item.get({ plain: true }),
+  });
 
   res.json({ item });
 };

@@ -8,6 +8,7 @@ import {
 } from "sequelize";
 import sequelize from "../config/database";
 import type { Location } from "./location.model";
+import type { User } from "./user.model";
 
 export type InspectionStatus = "scheduled" | "completed" | "follow_up" | "in_progress";
 
@@ -25,6 +26,8 @@ export class Inspection extends Model<
   declare notes: string | null;
   declare actionItems: Record<string, unknown>[] | null;
   declare followUpAt: Date | null;
+  declare ownerId: ForeignKey<User["id"]> | null;
+  declare enabled: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
@@ -81,8 +84,31 @@ export const initInspectionModel = () => {
         type: DataTypes.DATE,
         allowNull: true,
       },
-      createdAt: DataTypes.DATE,
-      updatedAt: DataTypes.DATE,
+      ownerId: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: true,
+        references: {
+          model: "users",
+          key: "id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+      enabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
     },
     {
       sequelize,

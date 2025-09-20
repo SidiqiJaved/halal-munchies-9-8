@@ -5,6 +5,7 @@ import helmet from "helmet";
 import routes from "./routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFoundHandler } from "./middleware/notFoundHandler";
+import { auditLogger, ownerAssignment } from "./middleware/auditMiddleware";
 
 const app = express();
 
@@ -19,6 +20,8 @@ app.use(
 );
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use(ownerAssignment);
+app.use(auditLogger);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });

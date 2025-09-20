@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Op } from "sequelize";
 import { MenuItem } from "../models/menu-item.model";
 import { AppError } from "../utils/AppError";
+import { logFieldChanges } from "../middleware/auditMiddleware";
 
 export const listMenuItems = async (req: Request, res: Response): Promise<void> => {
   const { category, search } = req.query;
@@ -52,6 +53,7 @@ export const createMenuItem = async (req: Request, res: Response): Promise<void>
     prepTimeMinutes: prepTimeMinutes ?? null,
     servings: servings || null,
     rating: rating ?? null,
+    ownerId: req.user?.id ?? null,
   });
 
   res.status(201).json({ item });
@@ -63,6 +65,8 @@ export const updateMenuItem = async (req: Request, res: Response): Promise<void>
   if (!item) {
     throw new AppError("Menu item not found", 404);
   }
+
+  const previous = item.get({ plain: true });
 
   const { name, description, price, category, imageUrl, isHalal, prepTimeMinutes, servings, rating } = req.body;
 
@@ -77,6 +81,13 @@ export const updateMenuItem = async (req: Request, res: Response): Promise<void>
   item.rating = rating ?? item.rating;
 
   await item.save();
+  await logFieldChanges({
+    userId: req.user?.id ?? null,
+    modelName: "MenuItem",
+    recordId: item.id,
+    previous,
+    next: item.get({ plain: true }),
+  });
 
   res.json({ item });
 };

@@ -1,11 +1,13 @@
 import {
   CreationOptional,
   DataTypes,
+  ForeignKey,
   InferAttributes,
   InferCreationAttributes,
   Model,
 } from "sequelize";
 import sequelize from "../config/database";
+import type { User } from "./user.model";
 
 export type TrainingType = "video" | "checklist" | "quiz" | "document";
 export type TrainingDifficulty = "beginner" | "intermediate" | "advanced";
@@ -22,6 +24,8 @@ export class TrainingModule extends Model<
   declare category: string;
   declare isRequired: CreationOptional<boolean>;
   declare difficulty: TrainingDifficulty;
+  declare ownerId: ForeignKey<User["id"]> | null;
+  declare enabled: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
@@ -66,8 +70,31 @@ export const initTrainingModuleModel = () => {
         allowNull: false,
         defaultValue: "beginner",
       },
-      createdAt: DataTypes.DATE,
-      updatedAt: DataTypes.DATE,
+      ownerId: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: true,
+        references: {
+          model: "users",
+          key: "id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+      enabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
     },
     {
       sequelize,

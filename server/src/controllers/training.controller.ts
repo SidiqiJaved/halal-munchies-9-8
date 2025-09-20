@@ -4,6 +4,7 @@ import { ChecklistProgress } from "../models/checklist-progress.model";
 import { TrainingModule } from "../models/training-module.model";
 import { TrainingProgress } from "../models/training-progress.model";
 import { AppError } from "../utils/AppError";
+import { logFieldChanges } from "../middleware/auditMiddleware";
 
 const resolveUserId = (req: Request): number => {
   if (req.user) {
@@ -78,10 +79,13 @@ export const toggleModuleCompletion = async (req: Request, res: Response): Promi
       progressPercent: progressPercent ?? (isCompleted ? 100 : 0),
       isCompleted: isCompleted ?? false,
       completedAt: isCompleted ? new Date() : null,
+      ownerId: req.user?.id ?? null,
     },
   });
 
   if (!created) {
+    const previous = record.get({ plain: true });
+
     if (typeof progressPercent === "number") {
       record.progressPercent = Math.max(0, Math.min(100, progressPercent));
     }
@@ -97,7 +101,18 @@ export const toggleModuleCompletion = async (req: Request, res: Response): Promi
       }
     }
 
+    if (req.user?.id && !record.ownerId) {
+      record.ownerId = req.user.id;
+    }
+
     await record.save();
+    await logFieldChanges({
+      userId: req.user?.id ?? null,
+      modelName: "TrainingProgress",
+      recordId: record.id,
+      previous,
+      next: record.get({ plain: true }),
+    });
   }
 
   res.json({ progress: record });
@@ -153,13 +168,25 @@ export const toggleChecklistItem = async (req: Request, res: Response): Promise<
     defaults: {
       isCompleted,
       completedAt: isCompleted ? new Date() : null,
+      ownerId: req.user?.id ?? null,
     },
   });
 
   if (!created) {
+    const previous = record.get({ plain: true });
     record.isCompleted = isCompleted;
     record.completedAt = isCompleted ? new Date() : null;
+    if (req.user?.id && !record.ownerId) {
+      record.ownerId = req.user.id;
+    }
     await record.save();
+    await logFieldChanges({
+      userId: req.user?.id ?? null,
+      modelName: "ChecklistProgress",
+      recordId: record.id,
+      previous,
+      next: record.get({ plain: true }),
+    });
   }
 
   res.json({ progress: record });

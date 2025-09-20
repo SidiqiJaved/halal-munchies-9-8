@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { Location } from "../models/location.model";
 import { AppError } from "../utils/AppError";
+import { logFieldChanges } from "../middleware/auditMiddleware";
 
 export const listLocations = async (_req: Request, res: Response): Promise<void> => {
   const locations = await Location.findAll({
@@ -55,6 +56,7 @@ export const createLocation = async (req: Request, res: Response): Promise<void>
     timezone: timezone || null,
     hours: hours || null,
     isCorporate: isCorporate ?? false,
+    ownerId: req.user?.id ?? null,
   });
 
   res.status(201).json({ location });
@@ -66,6 +68,8 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
   if (!location) {
     throw new AppError("Location not found", 404);
   }
+
+  const previous = location.get({ plain: true });
 
   const {
     name,
@@ -98,6 +102,13 @@ export const updateLocation = async (req: Request, res: Response): Promise<void>
   location.isCorporate = isCorporate ?? location.isCorporate;
 
   await location.save();
+  await logFieldChanges({
+    userId: req.user?.id ?? null,
+    modelName: "Location",
+    recordId: location.id,
+    previous,
+    next: location.get({ plain: true }),
+  });
 
   res.json({ location });
 };

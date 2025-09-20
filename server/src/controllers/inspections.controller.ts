@@ -3,6 +3,7 @@ import { Op } from "sequelize";
 import { Inspection } from "../models/inspection.model";
 import { Location } from "../models/location.model";
 import { AppError } from "../utils/AppError";
+import { logFieldChanges } from "../middleware/auditMiddleware";
 
 export const listInspections = async (req: Request, res: Response): Promise<void> => {
   const { status, locationId, upcomingOnly } = req.query;
@@ -74,6 +75,7 @@ export const createInspection = async (req: Request, res: Response): Promise<voi
     status: status || "scheduled",
     notes: notes || null,
     followUpAt: followUpAt || null,
+    ownerId: req.user?.id ?? null,
   });
 
   res.status(201).json({ inspection });
@@ -85,6 +87,8 @@ export const updateInspection = async (req: Request, res: Response): Promise<voi
   if (!inspection) {
     throw new AppError("Inspection not found", 404);
   }
+
+  const previous = inspection.get({ plain: true });
 
   const { scheduledAt, status, inspectorName, score, passed, notes, actionItems, followUpAt } = req.body;
 
@@ -98,6 +102,13 @@ export const updateInspection = async (req: Request, res: Response): Promise<voi
   inspection.followUpAt = followUpAt ?? inspection.followUpAt;
 
   await inspection.save();
+  await logFieldChanges({
+    userId: req.user?.id ?? null,
+    modelName: "Inspection",
+    recordId: inspection.id,
+    previous,
+    next: inspection.get({ plain: true }),
+  });
 
   res.json({ inspection });
 };

@@ -9,48 +9,28 @@ import {
 import sequelize from "../config/database";
 import type { User } from "./user.model";
 
-export class ChecklistItem extends Model<
-  InferAttributes<ChecklistItem>,
-  InferCreationAttributes<ChecklistItem>
-> {
+export class UpdateLog extends Model<InferAttributes<UpdateLog>, InferCreationAttributes<UpdateLog>> {
   declare id: CreationOptional<number>;
-  declare task: string;
-  declare category: string | null;
-  declare isRequired: CreationOptional<boolean>;
-  declare orderIndex: CreationOptional<number>;
-  declare ownerId: ForeignKey<User["id"]> | null;
+  declare userId: ForeignKey<User["id"]> | null;
+  declare modelName: string;
+  declare recordId: number;
+  declare fieldName: string;
+  declare previousValue: string | null;
+  declare newValue: string | null;
   declare enabled: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
 
-export const initChecklistItemModel = () => {
-  ChecklistItem.init(
+export const initUpdateLogModel = () => {
+  UpdateLog.init(
     {
       id: {
         type: DataTypes.INTEGER.UNSIGNED,
         autoIncrement: true,
         primaryKey: true,
       },
-      task: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      category: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
-      isRequired: {
-        type: DataTypes.BOOLEAN,
-        allowNull: false,
-        defaultValue: true,
-      },
-      orderIndex: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        allowNull: false,
-        defaultValue: 0,
-      },
-      ownerId: {
+      userId: {
         type: DataTypes.INTEGER.UNSIGNED,
         allowNull: true,
         references: {
@@ -59,6 +39,26 @@ export const initChecklistItemModel = () => {
         },
         onUpdate: "CASCADE",
         onDelete: "SET NULL",
+      },
+      modelName: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      recordId: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: false,
+      },
+      fieldName: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      previousValue: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      newValue: {
+        type: DataTypes.TEXT,
+        allowNull: true,
       },
       enabled: {
         type: DataTypes.BOOLEAN,
@@ -78,7 +78,7 @@ export const initChecklistItemModel = () => {
     },
     {
       sequelize,
-      tableName: "checklist_items",
+      tableName: "update_logs",
       underscored: true,
     }
   );

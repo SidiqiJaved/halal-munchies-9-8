@@ -9,6 +9,7 @@ import {
 import sequelize from "../config/database";
 import type { MenuItem } from "./menu-item.model";
 import type { Order } from "./order.model";
+import type { User } from "./user.model";
 
 export class OrderItem extends Model<
   InferAttributes<OrderItem>,
@@ -21,6 +22,8 @@ export class OrderItem extends Model<
   declare imageUrlSnapshot: string | null;
   declare quantity: number;
   declare unitPrice: number;
+  declare ownerId: ForeignKey<User["id"]> | null;
+  declare enabled: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
@@ -69,8 +72,31 @@ export const initOrderItemModel = () => {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
       },
-      createdAt: DataTypes.DATE,
-      updatedAt: DataTypes.DATE,
+      ownerId: {
+        type: DataTypes.INTEGER.UNSIGNED,
+        allowNull: true,
+        references: {
+          model: "users",
+          key: "id",
+        },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
+      },
+      enabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: DataTypes.NOW,
+      },
     },
     {
       sequelize,

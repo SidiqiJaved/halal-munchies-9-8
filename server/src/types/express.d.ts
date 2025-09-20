@@ -12,6 +12,12 @@ declare global {
     interface Request {
       user?: AuthenticatedUser;
     }
+    interface Response {
+      locals: Record<string, unknown> & {
+        responsePayload?: unknown;
+        errorMessage?: string;
+      };
+    }
   }
 }
 

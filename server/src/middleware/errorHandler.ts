@@ -26,5 +26,6 @@ export function errorHandler(
     payload.stack = err.stack;
   }
 
+  res.locals.errorMessage = err.message;
   res.status(status).json(payload);
 }
